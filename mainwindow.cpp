@@ -11,6 +11,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     initChart();
     initDB();
+
+    ui->historyRecord->setDateTime(QDateTime::currentDateTime());
+
     loadHistoryData(); // 加载历史
     if (!series->points().isEmpty()) {
         // 初始化x轴范围
@@ -352,9 +355,11 @@ void MainWindow::on_startEndBtn_clicked()
 {
     if (!isWorking) {
         timer->start(currentInterval * 1000);
+        ui->historyRecord->setDisabled(true);
         ui->startEndBtn->setText("end record");
     } else {
         timer->stop();
+        ui->historyRecord->setDisabled(false);
         ui->startEndBtn->setText("start record");
     }
     isWorking = !isWorking;
