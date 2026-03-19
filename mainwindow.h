@@ -14,6 +14,7 @@
 #include <QNetworkReply>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -39,12 +40,16 @@ private:
     QValueAxis *axisY;
     // 默认时间间隔
     int currentInterval = 3;
+    QNetworkAccessManager *manager;
+    bool isWorking = false;
 
 private:
     void initChart();
     void initTimer();
 
     void initDB();
+    void initNetwork();
+
     void createTable();
     void insertData(qint64 timestamp, double price);
     void loadHistoryData();
@@ -53,12 +58,19 @@ private:
     void updateAxisFormat();
     // 根据时间精度更新图表
     void queryAndUpdateChart();
-
+    // 获取实时价格
+    void requestPrice();
+    // 解析响应
+    void parseResponse(const QByteArray& data);
+    // 汇率换算
+    void translateRMB(double usdPrice);
 
 private slots:
     void onTimeout();
     // 处理时间精度
     void onIntervalChanged();
+
+    void on_startEndBtn_clicked();
 
 private:
     Ui::MainWindow *ui;

@@ -1304,6 +1304,8 @@ moc_mainwindow.cpp: ../../mainwindow.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/qjsondocument.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/QJsonObject \
 		/opt/homebrew/lib/QtCore.framework/Headers/qjsonobject.h \
+		/opt/homebrew/lib/QtCore.framework/Headers/QJsonArray \
+		/opt/homebrew/lib/QtCore.framework/Headers/qjsonarray.h \
 		moc_predefs.h \
 		/opt/homebrew/share/qt/libexec/moc
 	/opt/homebrew/share/qt/libexec/moc $(DEFINES) --include /Users/xiang/QTProject/realtimePrice/build/Desktop_arm_darwin_generic_mach_o_64bit-Debug/moc_predefs.h -I/opt/homebrew/share/qt/mkspecs/macx-clang -I/Users/xiang/QTProject/realtimePrice -I/opt/homebrew/lib/QtCharts.framework/Headers -I/opt/homebrew/lib/QtOpenGLWidgets.framework/Headers -I/opt/homebrew/lib/QtWidgets.framework/Headers -I/opt/homebrew/lib/QtOpenGL.framework/Headers -I/opt/homebrew/lib/QtGui.framework/Headers -I/opt/homebrew/lib/QtSql.framework/Headers -I/opt/homebrew/lib/QtNetwork.framework/Headers -I/opt/homebrew/lib/QtCore.framework/Headers -I. -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1 -I/Library/Developer/CommandLineTools/usr/lib/clang/17/include -I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include -I/Library/Developer/CommandLineTools/usr/include -F/opt/homebrew/lib ../../mainwindow.h -o moc_mainwindow.cpp
@@ -1359,6 +1361,8 @@ main.o: ../../main.cpp ../../mainwindow.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/qjsondocument.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/QJsonObject \
 		/opt/homebrew/lib/QtCore.framework/Headers/qjsonobject.h \
+		/opt/homebrew/lib/QtCore.framework/Headers/QJsonArray \
+		/opt/homebrew/lib/QtCore.framework/Headers/qjsonarray.h \
 		/opt/homebrew/lib/QtWidgets.framework/Headers/QApplication \
 		/opt/homebrew/lib/QtWidgets.framework/Headers/qapplication.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../../main.cpp
@@ -1390,9 +1394,13 @@ mainwindow.o: ../../mainwindow.cpp ../../mainwindow.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/qjsondocument.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/QJsonObject \
 		/opt/homebrew/lib/QtCore.framework/Headers/qjsonobject.h \
+		/opt/homebrew/lib/QtCore.framework/Headers/QJsonArray \
+		/opt/homebrew/lib/QtCore.framework/Headers/qjsonarray.h \
 		ui_mainwindow.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/QDebug \
-		/opt/homebrew/lib/QtCore.framework/Headers/qdebug.h
+		/opt/homebrew/lib/QtCore.framework/Headers/qdebug.h \
+		/opt/homebrew/lib/QtCore.framework/Headers/QDir \
+		/opt/homebrew/lib/QtCore.framework/Headers/qdir.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o ../../mainwindow.cpp
 
 moc_mainwindow.o: moc_mainwindow.cpp 
