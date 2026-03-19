@@ -151,7 +151,7 @@ void MainWindow::queryAndUpdateChart()
     //     ORDER BY t
     // )").arg(currentInterval);
 
-    // 只查询最近1小时的数据
+    // 只查询最近24小时的数据
     qint64 now = QDateTime::currentSecsSinceEpoch();
     qint64 window = 3600 * 24; // 可调
 
@@ -173,16 +173,30 @@ void MainWindow::queryAndUpdateChart()
         series->append(t * 1000, price);
     }
 
-    // 更新X轴范围
-    if (!series->points().isEmpty()) {
-        qint64 first = series->points().first().x() / 1000;
-        qint64 last  = series->points().last().x() / 1000;
+    // 根据粒度决定显示窗口
+    qint64 displayWindow = 0;
 
-        axisX->setRange(
-            QDateTime::fromSecsSinceEpoch(first),
-            QDateTime::fromSecsSinceEpoch(last)
-        );
+    if (currentInterval <= 3) {
+        displayWindow = 300;        // 只显示最近5分钟
     }
+    else if (currentInterval <= 60) {
+        displayWindow = 3600;       // 1小时
+    }
+    else if (currentInterval <= 900) {
+        displayWindow = 6 * 3600;   // 6小时
+    }
+    else if (currentInterval <= 3600) {
+        displayWindow = 3 * 86400;  // 3天
+    }
+    else {
+        displayWindow = 30 * 86400; // 30天
+    }
+
+    //滑动窗口 来更新x轴
+    axisX->setRange(
+        QDateTime::fromSecsSinceEpoch(now - displayWindow),
+        QDateTime::fromSecsSinceEpoch(now)
+    );
 
     // 更新y轴范围
     if (!series->points().isEmpty()) {
@@ -195,7 +209,7 @@ void MainWindow::queryAndUpdateChart()
             maxY = qMax(maxY, p.y());
         }
 
-        // 👉 加一点边距（非常关键）
+        // 加一点边距（非常关键）
         double padding = (maxY - minY) * 0.1;
 
         // 防止完全不波动
@@ -312,6 +326,7 @@ void MainWindow::onTimeout()
     // // 根据精度重新查询
     // queryAndUpdateChart();
     requestPrice();
+
 }
 
 void MainWindow::onIntervalChanged()
