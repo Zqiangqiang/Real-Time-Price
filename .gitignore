@@ -1,0 +1,20 @@
+# Qt build
+build/
+
+# Qt Creator
+.qtcreator/
+*.pro.user
+*.pro.user.*
+*.user
+
+# CMake (如果你用)
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+
+# 编译产物
+*.o
+*.obj
+*.exe
+*.dll
+*.so
