@@ -40,6 +40,8 @@ private:
     QValueAxis *axisY;
     // 默认时间间隔
     int currentInterval = 3;
+    // 滑动窗口显示范围
+    qint64 displayWindow = 0;
     QNetworkAccessManager *manager;
     bool isWorking = false;
 
@@ -57,13 +59,15 @@ private:
     // 精度与x轴绑定
     void updateAxisFormat();
     // 根据时间精度更新图表
-    void queryAndUpdateChart();
+    void queryAndUpdateChart(qint64 time = QDateTime::currentSecsSinceEpoch());
     // 获取实时价格
     void requestPrice();
     // 解析响应
     void parseResponse(const QByteArray& data);
     // 汇率换算
     void translateRMB(double usdPrice);
+    void updateDisplayWindow();
+    void scrollAxisXYRange(qint64 time, const QLineSeries* series);
 
 private slots:
     void onTimeout();
@@ -71,6 +75,8 @@ private slots:
     void onIntervalChanged();
 
     void on_startEndBtn_clicked();
+
+    void on_historyRecord_dateTimeChanged(const QDateTime &dateTime);
 
 private:
     Ui::MainWindow *ui;

@@ -126,7 +126,7 @@ void MainWindow::updateAxisFormat()
     }
 }
 
-void MainWindow::queryAndUpdateChart()
+void MainWindow::queryAndUpdateChart(qint64 startTime)
 {
 
     /*
@@ -151,29 +151,8 @@ void MainWindow::queryAndUpdateChart()
     //     ORDER BY t
     // )").arg(currentInterval);
 
-
-    // 根据粒度决定显示窗口
-    qint64 displayWindow = 0;
-
-    if (currentInterval <= 3) {
-        displayWindow = 300;        // 只显示最近5分钟
-    }
-    else if (currentInterval <= 60) {
-        displayWindow = 3600;       // 1小时
-    }
-    else if (currentInterval <= 900) {
-        displayWindow = 6 * 3600;   // 6小时
-    }
-    else if (currentInterval <= 3600) {
-        displayWindow = 3 * 86400;  // 3天
-    }
-    else {
-        displayWindow = 30 * 86400; // 30天
-    }
-
     // 只查询对应精度下允许的范围
-    qint64 now = QDateTime::currentSecsSinceEpoch();
-    qint64 window = displayWindow;
+    updateDisplayWindow();
 
     QString sql = QString(R"(
         SELECT
@@ -183,7 +162,7 @@ void MainWindow::queryAndUpdateChart()
         WHERE timestamp BETWEEN %2 AND %3
         GROUP BY t
         ORDER BY t
-    )").arg(currentInterval).arg(now - window).arg(now);
+    )").arg(currentInterval).arg(startTime - displayWindow).arg(startTime);
 
     QSqlQuery query(sql);
     while (query.next()) {
@@ -193,31 +172,8 @@ void MainWindow::queryAndUpdateChart()
         series->append(t * 1000, price);
     }
 
-    //滑动窗口 来更新x轴
-    axisX->setRange(
-        QDateTime::fromSecsSinceEpoch(now - displayWindow),
-        QDateTime::fromSecsSinceEpoch(now)
-    );
-
-    // 更新y轴范围
-    if (!series->points().isEmpty()) {
-
-        double minY = series->points().first().y();
-        double maxY = minY;
-
-        for (const QPointF &p : series->points()) {
-            minY = qMin(minY, p.y());
-            maxY = qMax(maxY, p.y());
-        }
-
-        // 加一点边距（非常关键）
-        double padding = (maxY - minY) * 0.1;
-
-        // 防止完全不波动
-        if (padding < 0.5) padding = 0.5;
-
-        axisY->setRange(minY - padding, maxY + padding);
-    }
+    // 更新坐标轴范围
+    scrollAxisXYRange(startTime, series);
 }
 
 void MainWindow::requestPrice()
@@ -277,6 +233,54 @@ void MainWindow::parseResponse(const QByteArray &data)
 void MainWindow::translateRMB(double usdPrice)
 {
     // 获取美元人民币汇率
+}
+
+void MainWindow::updateDisplayWindow()
+{
+    if (currentInterval <= 3) {
+        displayWindow = 300;        // 只显示最近5分钟
+    }
+    else if (currentInterval <= 60) {
+        displayWindow = 1800;       // 30分钟
+    }
+    else if (currentInterval <= 900) {
+        displayWindow = 3 * 3600;   // 3小时
+    }
+    else if (currentInterval <= 3600) {
+        displayWindow = 1 * 86400;  // 1天
+    }
+    else {
+        displayWindow = 14 * 86400; // 14天
+    }
+}
+
+void MainWindow::scrollAxisXYRange(qint64 nowTime, const QLineSeries* series)
+{
+    //滑动窗口 来更新x轴
+    axisX->setRange(
+        QDateTime::fromSecsSinceEpoch(nowTime - displayWindow),
+        QDateTime::fromSecsSinceEpoch(nowTime)
+    );
+
+    // 更新y轴范围
+    if (!series->points().isEmpty()) {
+
+        double minY = series->points().first().y();
+        double maxY = minY;
+
+        for (const QPointF &p : series->points()) {
+            minY = qMin(minY, p.y());
+            maxY = qMax(maxY, p.y());
+        }
+
+        // 加一点边距（非常关键）
+        double padding = (maxY - minY) * 0.1;
+
+        // 防止完全不波动
+        if (padding < 0.5) padding = 0.5;
+
+        axisY->setRange(minY - padding, maxY + padding);
+    }
 }
 
 void MainWindow::initChart()
@@ -354,5 +358,12 @@ void MainWindow::on_startEndBtn_clicked()
         ui->startEndBtn->setText("start record");
     }
     isWorking = !isWorking;
+}
+
+
+void MainWindow::on_historyRecord_dateTimeChanged(const QDateTime &dateTime)
+{
+    qint64 historyTime = dateTime.toSecsSinceEpoch();
+    queryAndUpdateChart(historyTime);
 }
 
