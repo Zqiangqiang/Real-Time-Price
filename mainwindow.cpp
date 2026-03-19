@@ -151,27 +151,6 @@ void MainWindow::queryAndUpdateChart()
     //     ORDER BY t
     // )").arg(currentInterval);
 
-    // 只查询最近24小时的数据
-    qint64 now = QDateTime::currentSecsSinceEpoch();
-    qint64 window = 3600 * 24; // 可调
-
-    QString sql = QString(R"(
-        SELECT
-            (timestamp / %1) * %1 AS t,
-            AVG(price)
-        FROM price_data
-        WHERE timestamp BETWEEN %2 AND %3
-        GROUP BY t
-        ORDER BY t
-    )").arg(currentInterval).arg(now - window).arg(now);
-
-    QSqlQuery query(sql);
-    while (query.next()) {
-        qint64 t = query.value(0).toLongLong();
-        double price = query.value(1).toDouble();
-        // 区间内点平均值
-        series->append(t * 1000, price);
-    }
 
     // 根据粒度决定显示窗口
     qint64 displayWindow = 0;
@@ -190,6 +169,28 @@ void MainWindow::queryAndUpdateChart()
     }
     else {
         displayWindow = 30 * 86400; // 30天
+    }
+
+    // 只查询对应精度下允许的范围
+    qint64 now = QDateTime::currentSecsSinceEpoch();
+    qint64 window = displayWindow;
+
+    QString sql = QString(R"(
+        SELECT
+            (timestamp / %1) * %1 AS t,
+            AVG(price)
+        FROM price_data
+        WHERE timestamp BETWEEN %2 AND %3
+        GROUP BY t
+        ORDER BY t
+    )").arg(currentInterval).arg(now - window).arg(now);
+
+    QSqlQuery query(sql);
+    while (query.next()) {
+        qint64 t = query.value(0).toLongLong();
+        double price = query.value(1).toDouble();
+        // 区间内点平均值
+        series->append(t * 1000, price);
     }
 
     //滑动窗口 来更新x轴
