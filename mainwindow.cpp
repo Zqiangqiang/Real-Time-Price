@@ -3,6 +3,11 @@
 #include <QDebug>
 #include <QDir>
 
+// 金衡盎司
+static double Ounce = 31.1035;
+// 港两
+static double Tael = 37.429;
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -45,7 +50,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     initTimer();
     initNetwork();
+    // 获取当日汇率
+    requestExchangeRate();
     connect(ui->accuracyCombo, &QComboBox::currentTextChanged, this, &MainWindow::onIntervalChanged);
+
+    status = new QLabel(this);
+    status->setPixmap(QPixmap(":/finished.png").scaled(20, 20));
+    ui->statusbar->addWidget(new QLabel("Current status: "));
+    ui->statusbar->addWidget(status);
 }
 
 MainWindow::~MainWindow()
@@ -221,21 +233,50 @@ void MainWindow::parseResponse(const QByteArray &data)
     double ask = p["ask"].toDouble();
 
     // 使用中间价
-    double price = (bid + ask) / 2.0;
+    usdPrice = (bid + ask) / 2.0;
+    QString type = ui->rateCombox->currentText().trimmed();
+    qDebug() << type;
+    double price = USDToOther(usdPrice, type);
     qDebug() << "bid:" << bid << "ask:" << ask << "mid:" << price;
 
-    ui->realtimePriceLabel->setText("CurrentPrice: " +  QString::number(price));
+    ui->realtimePriceLabel->setText("Price: " +  QString::number(price));
     // 使用查询时间更符合实际情况
     qint64 timestamp = firstObj["ts"].toVariant().toLongLong() / 1000;
     //qint64 timestamp = QDateTime::currentSecsSinceEpoch();
 
-    insertData(timestamp, price);
+    insertData(timestamp, usdPrice);
     queryAndUpdateChart();
 }
 
-void MainWindow::translateRMB(double usdPrice)
+void MainWindow::requestExchangeRate()
 {
-    // 获取美元人民币汇率
+    QUrl url("https://v6.exchangerate-api.com/v6/d0cf0058fd36cc793904de72/latest/USD");
+
+    QNetworkRequest request(url);
+    QNetworkReply *reply = manager->get(request);
+
+    connect(reply, &QNetworkReply::finished, this, [=]() {
+        if (reply->error() != QNetworkReply::NoError) {
+            qDebug() << "Request failed:" << reply->errorString();
+            reply->deleteLater();
+            return;
+        }
+
+        QByteArray data = reply->readAll();
+        // 解析并生成ExchangeRate
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (!doc.isObject()) return;
+        QJsonObject obj = doc.object();
+        if (!obj["conversion_rates"].isObject()) return;
+        QJsonObject subObj = obj["conversion_rates"].toObject();
+
+        rate = new ExchangeRate();
+        rate->toCNY = subObj["CNY"].toDouble();
+        rate->toHKD = subObj["HKD"].toDouble();
+        qDebug() << "CNY " << rate->toCNY << " HKD " << rate->toHKD;
+
+        reply->deleteLater();
+    });
 }
 
 void MainWindow::updateDisplayWindow()
@@ -283,6 +324,21 @@ void MainWindow::scrollAxisXYRange(qint64 nowTime, const QLineSeries* series)
         if (padding < 0.5) padding = 0.5;
 
         axisY->setRange(minY - padding, maxY + padding);
+    }
+}
+
+double MainWindow::USDToOther(const double usdPrice, const QString &type)
+{
+    if (type == "USD") {
+        return usdPrice;
+    }else if (type == "CNY") {
+        // 转换成人民币每克
+        return usdPrice * rate->toCNY / Ounce;
+    } else if (type == "HKD") {
+        // 转换成港币每两
+        return usdPrice / Ounce * Tael * rate->toHKD;
+    } else {
+        return -1;
     }
 }
 
@@ -357,18 +413,27 @@ void MainWindow::on_startEndBtn_clicked()
         timer->start(currentInterval * 1000);
         ui->historyRecord->setDisabled(true);
         ui->startEndBtn->setText("end record");
+        status->setPixmap(QPixmap(":/working.png").scaled(20, 20));
     } else {
         timer->stop();
         ui->historyRecord->setDisabled(false);
         ui->startEndBtn->setText("start record");
+        status->setPixmap(QPixmap(":/finished.png").scaled(20, 20));
     }
     isWorking = !isWorking;
 }
-
 
 void MainWindow::on_historyRecord_dateTimeChanged(const QDateTime &dateTime)
 {
     qint64 historyTime = dateTime.toSecsSinceEpoch();
     queryAndUpdateChart(historyTime);
+}
+
+void MainWindow::on_rateCombox_currentTextChanged(const QString &arg1)
+{
+    double price = USDToOther(usdPrice, arg1.trimmed());
+
+    ui->realtimePriceLabel->setText("Price: " +  QString::number(price));
+    ui->rateCombox->setCurrentText(arg1);
 }
 
