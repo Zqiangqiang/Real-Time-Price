@@ -17,6 +17,8 @@
 #include <QJsonArray>
 #include <QDateTime>
 #include <QLabel>
+#include <QThread>
+#include "worker.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -59,6 +61,9 @@ private:
     // 汇率
     ExchangeRate* rate;
     double usdPrice;
+    // 子线程
+    QThread* m_th;
+    Worker* m_worker;
 
 private:
     void initChart();
@@ -75,10 +80,10 @@ private:
     void updateAxisFormat();
     // 根据时间精度更新图表
     void queryAndUpdateChart(qint64 time = QDateTime::currentSecsSinceEpoch());
-    // 获取实时价格
-    void requestPrice();
+    // 获取实时价格(转到自线程中执行)
+    //void requestPrice();
     // 解析响应
-    void parseResponse(const QByteArray& data);
+    //void parseResponse(const QByteArray& data);
     // 汇率换算
     void requestExchangeRate();
     void updateDisplayWindow();
@@ -87,7 +92,7 @@ private:
     double USDToOther(const double usdPrice, const QString& type);
 
 private slots:
-    void onTimeout();
+    //void onTimeout();
     // 处理时间精度
     void onIntervalChanged();
 

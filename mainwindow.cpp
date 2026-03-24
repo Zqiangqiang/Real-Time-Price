@@ -58,10 +58,40 @@ MainWindow::MainWindow(QWidget *parent)
     status->setPixmap(QPixmap(":/finished.png").scaled(20, 20));
     ui->statusbar->addWidget(new QLabel("Current status: "));
     ui->statusbar->addWidget(status);
+
+    // 初始化多线程
+    m_th = new QThread(this);
+    // QObject 的父子必须在同一线程
+    m_worker = new Worker();
+    m_worker->moveToThread(m_th);
+
+    // 线程运行结束自动释放资源
+    connect(m_th, &QThread::finished, m_worker, &QObject::deleteLater);
+
+    // 定时器触发 → 子线程执行
+    connect(timer, &QTimer::timeout, m_worker, &Worker::requestPrice);
+
+    // 子线程 → 主线程
+    connect(m_worker, &Worker::priceReady, this, [=](double price, qint64 timestamp){
+
+        usdPrice = price;
+
+        QString type = ui->rateCombox->currentText().trimmed();
+        double exchangedPrice = USDToOther(usdPrice, type);
+        ui->realtimePriceLabel->setText("Price: " +  QString::number(exchangedPrice));
+
+        insertData(timestamp, price);     // ⚠️ 仍在主线程（安全）
+        queryAndUpdateChart();            // UI更新
+
+    });
+
+    m_th->start();
 }
 
 MainWindow::~MainWindow()
 {
+    m_th->quit();   // 1. 退出事件循环
+    m_th->wait();   // 2. 等线程真正结束
     delete ui;
 }
 
@@ -113,7 +143,9 @@ void MainWindow::insertData(qint64 timestamp, double price)
 
 void MainWindow::loadHistoryData()
 {
-    QSqlQuery query("SELECT timestamp, price FROM price_data ORDER BY timestamp ASC");
+    QString sql = QString("SELECT timestamp, price FROM price_data  WHERE timestamp BETWEEN %1 AND %2 ORDER BY timestamp ASC")
+                      .arg(QDateTime::currentSecsSinceEpoch() -  60).arg(QDateTime::currentSecsSinceEpoch());
+    QSqlQuery query(sql);
 
     while (query.next()) {
         qint64 t = query.value(0).toLongLong();
@@ -191,62 +223,62 @@ void MainWindow::queryAndUpdateChart(qint64 startTime)
     scrollAxisXYRange(startTime, series);
 }
 
-void MainWindow::requestPrice()
-{
-    QUrl url("https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD");
-    QNetworkRequest request(url);
-    QNetworkReply *reply = manager->get(request);
+// void MainWindow::requestPrice()
+// {
+//     QUrl url("https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD");
+//     QNetworkRequest request(url);
+//     QNetworkReply *reply = manager->get(request);
 
-    connect(reply, &QNetworkReply::finished, this, [=]() {
-        if (reply->error() != QNetworkReply::NoError) {
-            qDebug() << "Request failed:" << reply->errorString();
-            reply->deleteLater();
-            return;
-        }
+//     connect(reply, &QNetworkReply::finished, this, [=]() {
+//         if (reply->error() != QNetworkReply::NoError) {
+//             qDebug() << "Request failed:" << reply->errorString();
+//             reply->deleteLater();
+//             return;
+//         }
 
-        QByteArray data = reply->readAll();
-        parseResponse(data);
-        reply->deleteLater();
-    });
-}
+//         QByteArray data = reply->readAll();
+//         parseResponse(data);
+//         reply->deleteLater();
+//     });
+// }
 
-void MainWindow::parseResponse(const QByteArray &data)
-{
-    QJsonDocument doc = QJsonDocument::fromJson(data);
+// void MainWindow::parseResponse(const QByteArray &data)
+// {
+//     QJsonDocument doc = QJsonDocument::fromJson(data);
 
-    if (!doc.isArray()) return;
+//     if (!doc.isArray()) return;
 
-    QJsonArray arr = doc.array();
+//     QJsonArray arr = doc.array();
 
-    if (arr.isEmpty()) return;
+//     if (arr.isEmpty()) return;
 
-    QJsonObject firstObj = arr.at(0).toObject();
-    QJsonArray prices = firstObj["spreadProfilePrices"].toArray();
+//     QJsonObject firstObj = arr.at(0).toObject();
+//     QJsonArray prices = firstObj["spreadProfilePrices"].toArray();
 
-    if (prices.isEmpty()) return;
+//     if (prices.isEmpty()) return;
 
-    QJsonObject p = prices.at(0).toObject();
+//     QJsonObject p = prices.at(0).toObject();
 
-    // bid表示市场愿意买的价格（你卖出时成交）
-    // ask表示市场愿意卖的价格（你买入时成交）
-    double bid = p["bid"].toDouble();
-    double ask = p["ask"].toDouble();
+//     // bid表示市场愿意买的价格（你卖出时成交）
+//     // ask表示市场愿意卖的价格（你买入时成交）
+//     double bid = p["bid"].toDouble();
+//     double ask = p["ask"].toDouble();
 
-    // 使用中间价
-    usdPrice = (bid + ask) / 2.0;
-    QString type = ui->rateCombox->currentText().trimmed();
-    qDebug() << type;
-    double price = USDToOther(usdPrice, type);
-    qDebug() << "bid:" << bid << "ask:" << ask << "mid:" << price;
+//     // 使用中间价
+//     usdPrice = (bid + ask) / 2.0;
+//     QString type = ui->rateCombox->currentText().trimmed();
+//     qDebug() << type;
+//     double price = USDToOther(usdPrice, type);
+//     qDebug() << "bid:" << bid << "ask:" << ask << "mid:" << price;
 
-    ui->realtimePriceLabel->setText("Price: " +  QString::number(price));
-    // 使用查询时间更符合实际情况
-    qint64 timestamp = firstObj["ts"].toVariant().toLongLong() / 1000;
-    //qint64 timestamp = QDateTime::currentSecsSinceEpoch();
+//     ui->realtimePriceLabel->setText("Price: " +  QString::number(price));
+//     // 使用查询时间更符合实际情况
+//     qint64 timestamp = firstObj["ts"].toVariant().toLongLong() / 1000;
+//     //qint64 timestamp = QDateTime::currentSecsSinceEpoch();
 
-    insertData(timestamp, usdPrice);
-    queryAndUpdateChart();
-}
+//     insertData(timestamp, usdPrice);
+//     queryAndUpdateChart();
+// }
 
 void MainWindow::requestExchangeRate()
 {
@@ -377,21 +409,20 @@ void MainWindow::initChart()
 void MainWindow::initTimer()
 {
     timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, &MainWindow::onTimeout);
     // default timeout is 3 seconds
     //timer->start(currentInterval * 1000);
 }
 
-void MainWindow::onTimeout()
-{
-    // double price = 100 + (rand() % 20); // 模拟价格
-    // qint64 timestamp = QDateTime::currentSecsSinceEpoch();
-    // insertData(timestamp, price);
-    // // 根据精度重新查询
-    // queryAndUpdateChart();
-    requestPrice();
-
-}
+// void MainWindow::onTimeout()
+// {
+//     // double price = 100 + (rand() % 20); // 模拟价格
+//     // qint64 timestamp = QDateTime::currentSecsSinceEpoch();
+//     // insertData(timestamp, price);
+//     // // 根据精度重新查询
+//     // queryAndUpdateChart();
+//     requestPrice();
+    
+// }
 
 void MainWindow::onIntervalChanged()
 {
